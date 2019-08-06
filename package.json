@@ -1,0 +1,28 @@
+{
+  "name": "sqlpad-project",
+  "version": "3.0.0-beta.2",
+  "private": true,
+  "devDependencies": {
+    "husky": "^2.7.0",
+    "lint-staged": "^8.2.1",
+    "prettier": "^1.18.2"
+  },
+  "prettier": {
+    "singleQuote": true
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged"
+    }
+  },
+  "lint-staged": {
+    "*.{js,json,css}": [
+      "prettier --write",
+      "git add"
+    ]
+  },
+  "scripts": {
+    "fixlint": "npm run fixlint --prefix client && npm run fixlint --prefix server && prettier --write '**/*.js'",
+    "lint": "npm run lint --prefix client && npm run lint --prefix server && prettier --check '**/*.js'"
+  }
+}
