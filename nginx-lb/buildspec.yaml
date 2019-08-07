@@ -28,8 +28,7 @@ phases:
     commands:
       - echo Build started on `date`
       - echo Starting to build Docker image...
-      - cd $GITHUB_IMAGE_DIR
-      - docker build -t $IMAGE_NAME .
+      - docker build -t $IMAGE_NAME .$GITHUB_IMAGE_DIR
       - docker tag $IMAGE_NAME $ECR_URI:$IMAGE_TAG
 
   post_build:
