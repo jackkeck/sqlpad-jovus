@@ -11,12 +11,12 @@ services:
       volumes:
         - './sqlpad/src:/var/lib/sqlpad'
   sqlpad3:
-      build: ./backend
+      build: ./sqlpad
       tty: true
       volumes:
         - './sqlpad/src:/var/lib/sqlpad'
-  nginx:
-      build: ./nginx
+  nginx-lb:
+      build: ./nginx-lb
       tty: true
       links:
           - sqlpad1
