@@ -1,0 +1,39 @@
+version: 0.2
+phases:
+  install:
+    runtime-versions:
+      docker: 18
+
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR and setting repository/image details...
+      - aws --version
+      - $(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)
+      - AWSACCOUNT=063994975076
+      - IMAGE_NAME=sqlpad-jovus-nginx-lb
+      - IMAGE_TAG=feature-spartan-aurora-dev
+      - ECR_URI=$AWSACCOUNT.dkr.ecr.us-west-2.amazonaws.com/$IMAGE_NAME
+      - GITHUB_REPO=https://github.com/jackkeck/sqlpad-jovus
+      - GITHUB_REPO_BRANCH=feature/spartan-aurora-dev
+      - GITHUB_IMAGE_DIR=/nginx-lb
+      - echo AWSACCOUNT- $AWSACCOUNT
+      - echo ECR_URI- $ECR_URI
+      - echo IMAGE_NAME- $IMAGE_NAME
+      - echo IMAGE_TAG- $IMAGE_TAG
+      - echo GITHUB_REPO- $GITHUB_REPO
+      - echo GITHUB_REPO_BRANCH- $GITHUB_REPO_BRANCH
+      - echo GITHUB_IMAGE_DIR- $GITHUB_IMAGE_DIR
+
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Starting to build Docker image...
+      - cd $GITHUB_IMAGE_DIR
+      - docker build -t $IMAGE_NAME .
+      - docker tag $IMAGE_NAME $ECR_URI:$IMAGE_TAG
+
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker image...
+      - docker push $ECR_URI:$IMAGE_TAG
