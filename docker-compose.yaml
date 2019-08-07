@@ -9,7 +9,7 @@ services:
       build: ./nginx-lb
       tty: true
       links:
-          - sqlpad
+          - app
       ports:
           - '80:80'
 volumes:
