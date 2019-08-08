@@ -1,0 +1,167 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      docker: 18
+  pre_build:
+    commands:
+      - echo Assigning account, build, and deployment variables
+      # AWS Account Details
+      - AWSACCOUNT=063994975076
+      - AWSREGION=us-west-2
+      # ECS Details
+      - ECS_TASK_FAMILY=sqlpad-dev
+      # Docker/ECR Details
+      - NGINX_IMAGE_NAME=sqlpad-jovus-nginx-lb
+      - SQLPAD_IMAGE_NAME=sqlpad-jovus-app
+      - IMAGE_TAG=feature-spartan-aurora-dev
+      - ECR_URI=$AWSACCOUNT.dkr.ecr.$AWSREGION.amazonaws.com/$IMAGE_NAME
+      - NGINX_ECR_URI=$AWSACCOUNT.dkr.ecr.$AWSREGION.amazonaws.com/$NGINX_IMAGE_NAME
+      - SQLPAD_ECR_URI=$AWSACCOUNT.dkr.ecr.$AWSREGION.amazonaws.com/$SQLPAD_IMAGE_NAME
+      # GitHub Details
+      - GITHUB_REPO=https://github.com/jackkeck/sqlpad-jovus
+      - GITHUB_REPO_BRANCH=feature/spartan-aurora-dev
+      - NGINX_GITHUB_IMAGE_DIR=/nginx-lb
+      - SQLPAD_GITHUB_IMAGE_DIR=/sqlpad
+      # Printing Variables For Visibility
+      - echo AWSACCOUNT-- $AWSACCOUNT
+      - echo AWSREGION-- $AWSREGION
+      - echo ECS_TASK_FAMILY-- $ECS_TASK_FAMILY
+      - echo ECR_URI-- $ECR_URI
+      - echo NGINX_ECR_URI-- $NGINX_ECR_URI
+      - echo SQLPAD_ECR_URI-- $SQLPAD_ECR_URI
+      - echo NGINX_IMAGE_NAME-- $NGINX_IMAGE_NAME
+      - echo SQLPAD_IMAGE_NAME-- $SQLPAD_IMAGE_NAME
+      - echo IMAGE_TAG-- $IMAGE_TAG
+      - echo GITHUB_REPO-- $GITHUB_REPO
+      - echo GITHUB_REPO_BRANCH-- $GITHUB_REPO_BRANCH
+      - echo GITHUB_IMAGE_DIR-- $NGINX_GITHUB_IMAGE_DIR
+      - echo GITHUB_IMAGE_DIR-- $SQLPAD_GITHUB_IMAGE_DIR
+
+  build:
+    commands:
+      - echo NOTHING TO BUILD
+  post_build:
+    commands:
+      - echo Build Job completed on `date`
+      - echo Running Post-Build actions for Deployments
+      # Creating Image Detail File
+      - echo Writing imageDetail.json file for backwards-compatability with ECS Rolling Deployments
+      - 'printf "[ \n" > imageDetail.json '
+      - 'printf "    { \n" >> imageDetail.json '
+      - 'printf "        \"ImageURI\":\"%s\" \n" $NGINX_ECR_URI:$IMAGE_TAG >> imageDetail.json '
+      - 'printf "    }, \n" >> imageDetail.json '
+      - 'printf "    { \n" >> imageDetail.json '
+      - 'printf "        \"ImageURI\":\"%s\" \n" $SQLPAD_ECR_URI:$IMAGE_TAG >> imageDetail.json '
+      - 'printf "    } \n" >> imageDetail.json '
+      - 'printf "] \n" >> imageDetail.json '
+      # Creating Image Definitions File
+      - echo Writing imagedefinitions.json file for ECS Blue/Green Deployments
+      - 'printf "[ \n" > imagedefinitions.json '
+      - 'printf "    { \n" >> imagedefinitions.json '
+      - 'printf "        \"%s\":\"%s\" \n" $NGINX_ECR_URI:$IMAGE_TAG $NGINX_ECR_URI:$IMAGE_TAG >> imagedefinitions.json '
+      - 'printf "    }, \n" >> imagedefinitions.json '
+      - 'printf "    { \n" >> imagedefinitions.json '
+      - 'printf "        \"%s\":\"%s\" \n" $SQLPAD_ECR_URI:$IMAGE_TAG $NGINX_ECR_URI:$IMAGE_TAG >> imagedefinitions.json '
+      - 'printf "    } \n" >> imagedefinitions.json '
+      - 'printf "] " >> imagedefinitions.json '
+      # Creating AppSpec File
+      - echo Writing appspec.yaml file
+      - 'printf "version: 0.0 \n" > appspec.yaml'
+      - 'printf "Resources: \n" >> appspec.yaml'
+      - 'printf "  - TargetService: \n" >> appspec.yaml'
+      - 'printf "      Type: AWS::ECS::Service \n" >> appspec.yaml'
+      - 'printf "      Properties: \n" >> appspec.yaml'
+      - 'printf "        TaskDefinition: <TASK_DEFINITION> \n" >> appspec.yaml'
+      - 'printf "        LoadBalancerInfo: \n" >> appspec.yaml'
+      - 'printf "          ContainerName: \"%s\" \n" $NGINX_IMAGE_NAME-$IMAGE_TAG >> appspec.yaml'
+      - 'printf "          ContainerPort: 80 \n" >> appspec.yaml'
+      #Creating TaskDef File
+      - echo Writing taskdef.json file
+      - 'printf "{ \n"  > taskdef.json '
+      - 'printf "    \"executionRoleArn\": \"arn:aws:iam::$AWSACCOUNT:role/ecsTaskExecutionRole\", \n" >> taskdef.json '
+      - 'printf "    \"containerDefinitions\": [ \n" >> taskdef.json '
+      - 'printf "        { \n" >> taskdef.json '
+      - 'printf "            \"name\": \"%s\", \n" $NGINX_IMAGE_NAME-$IMAGE_TAG >> taskdef.json '
+      - 'printf "            \"image\": \"%s\", \n" $NGINX_ECR_URI:$IMAGE_TAG >> taskdef.json '
+      - 'printf "            \"essential\": true, \n" >> taskdef.json '
+      - 'printf "            \"dependsOn\": [ \n" >> taskdef.json '
+      - 'printf "               { \n" >> taskdef.json '
+      - 'printf "                \"containerName\": \"$SQLPAD_IMAGE_NAME-$IMAGE_TAG\", \n" >> taskdef.json '
+      - 'printf "                \"condition\": \"START\" \n" >> taskdef.json '
+      - 'printf "               } \n" >> taskdef.json '
+      - 'printf "             ], \n" >> taskdef.json '
+      - 'printf "            \"logConfiguration\": { \n" >> taskdef.json '
+      - 'printf "                    \"logDriver\": \"awslogs\", \n" >> taskdef.json '
+      - 'printf "                    \"options\": {  \n" >> taskdef.json '
+      - 'printf "                            \"awslogs-group\": \"/ecs/%s\", \n" $NGINX_IMAGE_NAME-$IMAGE_TAG >> taskdef.json '
+      - 'printf "                            \"awslogs-region\": \"$AWSREGION\", \n" >> taskdef.json '
+      - 'printf "                            \"awslogs-stream-prefix\": \"ecs\" \n" >> taskdef.json '
+      - 'printf "                    } \n" >> taskdef.json '
+      - 'printf "            }, \n" >> taskdef.json '
+      - 'printf "            \"portMappings\": [ \n" >> taskdef.json '
+      - 'printf "                { \n" >> taskdef.json '
+      - 'printf "                    \"hostPort\": 80, \n" >> taskdef.json '
+      - 'printf "                    \"protocol\": \"tcp\", \n" >> taskdef.json '
+      - 'printf "                    \"containerPort\": 80 \n" >> taskdef.json '
+      - 'printf "                } \n" >> taskdef.json '
+      - 'printf "            ] \n" >> taskdef.json '
+      - 'printf "        } \n" >> taskdef.json '
+      - 'printf "    ], \n" >> taskdef.json '
+      - 'printf "    \"containerDefinitions\": [ \n" >> taskdef.json '
+      - 'printf "        { \n" >> taskdef.json '
+      - 'printf "            \"name\": \"%s\", \n" $SQLPAD_IMAGE_NAME-$IMAGE_TAG >> taskdef.json '
+      - 'printf "            \"image\": \"%s\", \n" $SQLPAD_ECR_URI:$IMAGE_TAG >> taskdef.json '
+      - 'printf "            \"essential\": true, \n" >> taskdef.json '
+      - 'printf "            \"logConfiguration\": { \n" >> taskdef.json '
+      - 'printf "                    \"logDriver\": \"awslogs\", \n" >> taskdef.json '
+      - 'printf "                    \"options\": {  \n" >> taskdef.json '
+      - 'printf "                            \"awslogs-group\": \"/ecs/%s\", \n" $SQLPAD_IMAGE_NAME-$IMAGE_TAG >> taskdef.json '
+      - 'printf "                            \"awslogs-region\": \"$AWSREGION\", \n" >> taskdef.json '
+      - 'printf "                            \"awslogs-stream-prefix\": \"ecs\" \n" >> taskdef.json '
+      - 'printf "                    } \n" >> taskdef.json '
+      - 'printf "            }, \n" >> taskdef.json '
+      - 'printf "            \"mountPoints\": [ \n" >> taskdef.json '
+      - 'printf "               { \n" >> taskdef.json '
+      - 'printf "                \"readOnly\": null, \n" >> taskdef.json '
+      - 'printf "                \"containerPath\": \"/var/lib/sqlpad\", \n" >> taskdef.json '
+      - 'printf "                \"sourceVolume\": \"sqlpad\" \n" >> taskdef.json '
+      - 'printf "              } \n" >> taskdef.json '
+      - 'printf "             ], \n" >> taskdef.json '
+      - 'printf "            \"workingDirectory\": \"/var/lib/sqlpad\", \n" >> taskdef.json '
+      - 'printf "            \"portMappings\": [ \n" >> taskdef.json '
+      - 'printf "                { \n" >> taskdef.json '
+      - 'printf "                    \"hostPort\": 3000, \n" >> taskdef.json '
+      - 'printf "                    \"protocol\": \"tcp\", \n" >> taskdef.json '
+      - 'printf "                    \"containerPort\": 3000 \n" >> taskdef.json '
+      - 'printf "                } \n" >> taskdef.json '
+      - 'printf "            ] \n" >> taskdef.json '
+      - 'printf "        } \n" >> taskdef.json '
+      - 'printf "    ], \n" >> taskdef.json '
+      - 'printf "    \"requiresCompatibilities\": [ \n" >> taskdef.json '
+      - 'printf "        \"FARGATE\" \n" >> taskdef.json '
+      - 'printf "    ], \n" >> taskdef.json '
+      - 'printf "    \"networkMode\": \"awsvpc\", \n" >> taskdef.json '
+      - 'printf "    \"cpu\": \"2048\", \n" >> taskdef.json '
+      - 'printf "    \"memory\": \"4096\", \n" >> taskdef.json '
+      - 'printf "    \"volumes\": [ \n" >> taskdef.json '
+      - 'printf "       { \n" >> taskdef.json '
+      - 'printf "         \"name\": \"sqlpad\", \n" >> taskdef.json '
+      - 'printf "         \"host\": { \n" >> taskdef.json '
+      - 'printf "           \"sourcePath\": null \n" >> taskdef.json '
+      - 'printf "         }, \n" >> taskdef.json '
+      - 'printf "         \"dockerVolumeConfiguration\": null \n" >> taskdef.json '
+      - 'printf "       } \n" >> taskdef.json '
+      - 'printf "     ], \n" >> taskdef.json '
+      - 'printf "    \"status\": \"ACTIVE\", \n" >> taskdef.json '
+      - 'printf "    \"family\": \"$ECS_TASK_FAMILY\" \n"  >> taskdef.json '
+      - 'printf "} " >> taskdef\.json'
+
+artifacts:
+    files:
+      - imagedefinitions.json
+      - imageDetail.json
+      - appspec.yaml
+      - taskdef.json
+    discard-paths: yes
