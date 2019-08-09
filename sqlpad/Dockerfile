@@ -1,9 +1,7 @@
 FROM node:12.3.1-alpine
 
 ENV NODE_ENV production
-
 WORKDIR /var/lib/sqlpad
-
 COPY . .
 
 RUN scripts/build.sh

@@ -99,7 +99,7 @@ const configItems = [
     key: 'admin',
     cliFlag: 'admin',
     envVar: 'SQLPAD_ADMIN',
-    default: '',
+    default: 'jack.keck@jovus.com',
     description: 'Email address to whitelist/give admin permissions to'
   },
   {
@@ -224,7 +224,7 @@ const configItems = [
     cliFlag: 'whitelisted-domains',
     description:
       'Allows pre-approval of email domains. Delimit multiple domains by empty space.',
-    default: ''
+    default: 'jovus.com'
   },
   {
     key: 'disableUpdateCheck',
