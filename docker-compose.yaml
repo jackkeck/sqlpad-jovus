@@ -1,0 +1,16 @@
+version: '3.2'
+services:
+  app:
+      build: ./sqlpad
+      tty: true
+      volumes:
+        - './sqlpad/src:/var/lib/sqlpad'
+  nginx-lb:
+      build: ./nginx-lb
+      tty: true
+      links:
+          - app
+      ports:
+          - '80:80'
+volumes:
+  backend:
